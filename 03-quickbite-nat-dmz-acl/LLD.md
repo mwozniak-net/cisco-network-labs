@@ -47,7 +47,7 @@ DHCP on R1-EDGE: pools `VLAN10` and `VLAN30`. Each pool hands out the .1 gateway
 | PAT | `ip nat inside source list NAT-PAT interface Gi0/1 overload` – NAT-PAT permits 10.92.10.0/24 and 10.92.30.0/24 |
 | Static (port forwarding) | tcp 172.16.92.10:80 → 192.0.2.2:80 |
 | Static (port forwarding) | tcp 172.16.92.10:443 → 192.0.2.2:443 |
-| Inside | Gi0/0 and subinterfaces, Gi0/2 |
+| Inside | Gi0/0.10, Gi0/0.30, Gi0/0.99, Gi0/2 |
 | Outside | Gi0/1 |
 
 Routing: `ip route 0.0.0.0 0.0.0.0 192.0.2.1`.
@@ -74,7 +74,9 @@ Routing: `ip route 0.0.0.0 0.0.0.0 192.0.2.1`.
 | 1 | permit tcp any host 172.16.92.10 eq www |
 | 2 | permit tcp any host 172.16.92.10 eq 443 |
 | 3 | permit tcp 10.92.99.0/24 host 172.16.92.10 eq 22 |
-| 4 | deny ip any any |
+| 4 | deny ip any any (target IOS: `deny ip any any log`, which Packet Tracer rejects) |
+
+Server-PT has no SSH server. The SSH rule is part of the design, and its effect can only be shown on the HTTP counters.
 
 ### ACL_SSH – vty 0–15
 
@@ -95,7 +97,13 @@ Routing: `ip route 0.0.0.0 0.0.0.0 192.0.2.1`.
 - **SRV-WEB:** HTTP and HTTPS enabled, gateway 172.16.92.1.
 - **SRV-INET:** DNS enabled with the A record `www.quickbite.com` → 192.0.2.2. HTTP is enabled, gateway 8.8.8.1.
 
-## 8. Verification commands
+## 8. Management and logging
+
+- **SSH and accounts:** `ip domain-name quickbite`, RSA keys, `ip ssh version 2`, `netadmin` privilege 15, `enable secret`, `service password-encryption`.
+- **Logging:** `logging buffered`. Packet Tracer accepts it but does not display it in running-config.
+- **Packet Tracer:** the 2960 accepts `privilege 15` for the local account but does not display it in running-config.
+
+## 9. Verification commands
 
 ```
 R1-EDGE# show ip nat translations

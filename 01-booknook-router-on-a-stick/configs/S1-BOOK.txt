@@ -21,14 +21,14 @@ spanning-tree mode pvst
 spanning-tree extend system-id
 !
 interface FastEthernet0/1
- description do PC_ADMIN
+ description PC-ADMIN
  switchport access vlan 99
  switchport mode access
  spanning-tree portfast
  spanning-tree bpduguard enable
 !
 interface FastEthernet0/2
- description do Serwera
+ description SRV-INFO
  switchport access vlan 99
  switchport mode access
  spanning-tree portfast
@@ -161,14 +161,14 @@ interface FastEthernet0/23
  shutdown
 !
 interface FastEthernet0/24
- description do S2
+ description TRUNK do S2-BOOK
  switchport trunk native vlan 99
  switchport trunk allowed vlan 10,20,99
  switchport mode trunk
  switchport nonegotiate
 !
 interface GigabitEthernet0/1
- description do R1-BOOK
+ description TRUNK do R1-BOOK
  switchport trunk native vlan 99
  switchport trunk allowed vlan 10,20,99
  switchport mode trunk
@@ -185,7 +185,8 @@ interface Vlan1
  shutdown
 !
 interface Vlan99
- ip address 10.90.99.11 255.255.255.0
+ description MGMT-S1
+ ip address 10.90.99.2 255.255.255.0
 !
 ip default-gateway 10.90.99.1
 !

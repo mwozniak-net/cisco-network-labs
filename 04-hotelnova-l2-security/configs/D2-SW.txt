@@ -15,12 +15,26 @@ ip domain-name hotelnova.local
 !
 username netadmin secret 5 $1$mERr$AKhfMrVYVavlwy.6ebztV1
 !
+vtp mode transparent
+!
 !
 !
 spanning-tree mode rapid-pvst
 spanning-tree extend system-id
 spanning-tree vlan 20 priority 24576
 spanning-tree vlan 10,99 priority 28672
+!
+vlan 10
+ name STAFF
+!
+vlan 20
+ name GUEST
+!
+vlan 99
+ name MGMT
+!
+vlan 999
+ name PARKING
 !
 interface Port-channel1
  description Po1-LACP-DO-D1

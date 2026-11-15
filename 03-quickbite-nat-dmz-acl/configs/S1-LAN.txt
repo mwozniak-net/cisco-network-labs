@@ -189,6 +189,7 @@ interface Vlan1
  shutdown
 !
 interface Vlan99
+ description MGMT-S1
  ip address 10.92.99.2 255.255.255.0
 !
 ip default-gateway 10.92.99.1

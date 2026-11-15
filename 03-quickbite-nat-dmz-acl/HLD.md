@@ -4,7 +4,7 @@
 
 A restaurant needs internet access for staff and guests, a public web page hosted on its own server, and strict separation between guests, staff, management and the server. The public server must sit in a DMZ so that a compromise does not give direct access to the LAN.
 
-The original task sheet is not part of this repository; requirements below were reconstructed from the implemented configuration.
+Source: practice worksheet 10 (SkillsPoland 2026 preparation). The worksheet asks the HLD to justify two decisions, which are covered in section 4.
 
 ## 2. Requirements
 
@@ -43,8 +43,9 @@ flowchart LR
 
 | Decision | Reason |
 |---|---|
+| **`DMZ-OUT` outbound on Gi0/2 (the DMZ interface)** | Traffic from every zone enters the DMZ through this one interface, in the "out" direction: internet traffic after static PAT has translated the destination to 172.16.92.10, LAN traffic and management traffic alike. One ACL there filters all of it. Placed inbound on Gi0/1 it would see only internet traffic, and before translation it would have to match 192.0.2.2. |
+| **R2-ISP has no routes to private networks** | R1 translates every outgoing packet to 192.0.2.2 (PAT), and incoming connections target 192.0.2.2 (static PAT). The ISP only ever sees an address from its directly connected 192.0.2.0/30, so it needs no routes to 10.92.x.x or 172.16.92.0. Such routes would also hide a broken NAT. |
 | DMZ on a separate router interface, not a VLAN on the LAN switch | Physical separation of the published server |
-| `DMZ-OUT` applied outbound on the DMZ interface | One ACL controls everything that enters the DMZ, from any zone |
 | `ACL_GUEST` applied inbound on the guest subinterface | Guest traffic is filtered as close to the source as possible |
 | Static NAT per port (80, 443) instead of a 1:1 NAT | Only the published services are exposed |
 | MGMT excluded from PAT | Management stations do not browse the internet |

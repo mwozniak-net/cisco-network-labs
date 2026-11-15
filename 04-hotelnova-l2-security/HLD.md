@@ -2,52 +2,51 @@
 
 ## 1. Purpose
 
-Hotel network for staff, guests and IT administration, built on a redundant switch block. Guest ports are publicly accessible, so the access layer must withstand typical local attacks: a rogue DHCP server, ARP spoofing, an unauthorised switch, or MAC flooding on a staff port.
-
-The original task sheet is not part of this repository; requirements below were reconstructed from the implemented configuration and the attack scenario in the lab (a rogue router labelled "ATAKUJĄCY" connected to a guest port).
+The HotelNova hotel is modernising its network. It is building a redundant switch block, sharing traffic between the two distribution switches, and protecting publicly accessible access ports against local attacks: a rogue DHCP server, IP spoofing, an unauthorised switch, or an unknown device on a staff port. Source: practice worksheet 12 (SkillsPoland 2026 preparation).
 
 ## 2. Requirements
 
-| ID | Requirement |
+| ID | Requirement (from the worksheet) |
 |---|---|
-| R1 | Separate VLANs: STAFF (10), GUEST (20), MGMT (99), unused ports in 999 |
-| R2 | Redundant uplinks without loops; bandwidth aggregation between switches |
-| R3 | Load sharing between distribution switches per VLAN |
-| R4 | DHCP from the gateway only. A rogue DHCP server must not be able to serve clients |
-| R5 | Protection against ARP spoofing in the guest VLAN |
-| R6 | Only the registered staff PC on the staff port |
-| R7 | SSH management from VLAN 99 only, with brute-force protection |
+| R1 | VLANs STAFF 10, GUEST 20, MGMT 99, PARKING 999. VTP transparent, VLANs created manually. |
+| R2 | Router-on-a-stick on R1-GW, dual stack with SLAAC for VLAN 10/20, DHCPv4 (.1–.20 excluded) |
+| R3 | EtherChannel LACP D1–D2 (Po1), PAgP D1–A1 (Po2), backup trunk A1–D2 |
+| R4 | Rapid PVST+. D1 is root for VLAN 10/99 and secondary for 20. D2 is root for VLAN 20 and secondary for 10/99. |
+| R5 | PortFast + BPDU Guard on host ports; port security on PC-STAFF (1 MAC, sticky, shutdown) |
+| R6 | DHCP snooping on A1 for VLAN 10/20, trusted only towards distribution, 10 pps on access ports |
+| R7 | IP Source Guard on the PC-GUEST port |
+| R8 | SSHv2 from VLAN 99 only, privilege-15 account, `exec-timeout 5 0`, `login block-for` |
 
-## 3. Topology and redundancy
+## 3. Topology
 
 ```mermaid
 flowchart TB
   R1["R1-GW"] --- D1["D1-SW<br/>root: VLAN 10, 99<br/>secondary: VLAN 20"]
-  D1 ===|"Po1 · LACP · 2×FE"| D2["D2-SW<br/>root: VLAN 20<br/>secondary: VLAN 10, 99"]
-  D1 ===|"Po2 · PAgP · 2×FE"| A1["A1-SW (access)"]
-  D2 ---|"Fa0/20 – Fa0/24<br/>backup trunk"| A1
+  D1 ===|"Po1 · LACP"| D2["D2-SW<br/>root: VLAN 20<br/>secondary: VLAN 10, 99"]
+  D1 ===|"Po2 · PAgP"| A1["A1-SW (access)"]
+  D2 ---|"backup trunk"| A1
 ```
 
-- **Spanning tree:** Rapid PVST+. D1 is the root for VLAN 10 and 99, and D2 is the root for VLAN 20. Each VLAN therefore has a different preferred path from A1.
-- **EtherChannel:** LACP between the distribution switches, and PAgP between D1 and A1. Both types are used in the lab to show the two protocols.
-- **Inter-VLAN routing:** handled on R1-GW (router-on-a-stick), with the native VLAN set to 99.
-
-## 4. Security controls
-
-| Threat | Control | Where |
+| VLAN | Path from A1 | Blocked on A1 |
 |---|---|---|
-| Rogue DHCP server | DHCP snooping for VLAN 10 and 20; only uplinks are trusted; rate limit 10 pps on access ports | A1-SW |
-| ARP spoofing / MITM | Dynamic ARP Inspection for VLAN 20, validated against the snooping bindings | A1-SW |
-| Unknown device on the staff port | Port security, sticky MAC, max. 1 | A1-SW Fa0/1 |
-| Rogue switch / STP manipulation | PortFast + BPDU Guard on all edge ports | A1, D1 |
-| DTP-based VLAN hopping | `switchport nonegotiate` on all trunks; unused ports in VLAN 999, shutdown | all switches |
-| Brute force on management | `login block-for 10 attempts 3 within 60`, `exec-timeout 5 0` | R1-GW (block-for), all devices (timeout) |
-| Remote management | SSH v2 only, ACL 1 permits 10.94.99.0/24, local user | all devices |
+| 10 STAFF | Po2 → D1 (root) | Fa0/24 |
+| 20 GUEST | Fa0/24 → D2 (root) | Po2 |
+| 99 MGMT | Po2 → D1 (root) | Fa0/24 |
 
-## 5. Known limitations and recommendations
+## 4. Design decisions
 
-- **DHCP snooping trust on EtherChannel:** Packet Tracer does not support it. On real IOS the trust belongs on the port-channel interface. The STP cost workaround in the lab file only exists to make the simulation work (see README, finding 1).
-- **Native VLAN:** VLAN 99 is the native VLAN on all trunks and also the management VLAN. A dedicated unused native VLAN is recommended.
-- **DAI coverage:** it covers only VLAN 20. Extending it to VLAN 10 is recommended.
-- **No central logging:** there is no syslog/SNMP, so snooping/DAI drops are visible only locally. In a SOC they should be forwarded to a SIEM.
-- **Single gateway:** R1-GW has no redundancy (no HSRP).
+| Decision | Reason |
+|---|---|
+| **Root bridge split between D1 and D2** | With one root for all VLANs, A1 would block the same uplink for every VLAN and that link would carry nothing until a failure. Making D1 root for 10/99 and D2 root for 20 uses both uplinks: STAFF and management go through Po2, guests through Fa0/24. Each distribution switch is secondary for the other VLANs, so a failure of either one still leaves a predictable root. |
+| **Two EtherChannel protocols** | LACP (IEEE 802.3ad) is the open standard and is used in the core between D1 and D2. PAgP is Cisco-proprietary and is used towards A1, to show both negotiation modes (active/passive and desirable). Either protocol negotiates the bundle and refuses to form it when the member port settings differ, which a static `on` channel would not catch. |
+| **Only ports towards distribution are trusted in DHCP snooping** | The only legitimate DHCP server, R1-GW, is reached through the uplinks (Po2 members, Fa0/24). Any DHCP OFFER/ACK arriving on an access port comes from a rogue server and is dropped. That is exactly how ROGUE-DHCP on Fa0/10 is neutralised. Trusting access ports would defeat the feature. |
+| Option 82 insertion disabled (`no ip dhcp snooping information option`) | R1-GW is not a relay agent. It would drop DHCP requests carrying option 82 with a zero giaddr, and clients would stop getting addresses. |
+| VTP transparent | VLANs are managed per switch, so a switch with a higher revision cannot overwrite the VLAN database. |
+| DAI on VLAN 20 (extension, not required) | Uses the snooping bindings to block ARP spoofing in the public guest VLAN |
+
+## 5. Limitations
+
+- **Simulator limitations:** several features are not available in Packet Tracer 9.0 — DHCP snooping trust on a port-channel, IP Source Guard, and `login block-for` on the 2960. The README lists them, and the LLD gives the target IOS configuration.
+- **Native VLAN:** the native VLAN is 99, which is also the management VLAN, as required by the worksheet. In production a dedicated unused native VLAN is recommended.
+- **No central logging:** there is no syslog or SNMP. Snooping drops are visible only on the switch, and in a SOC they would be forwarded to a SIEM.
+- **Single gateway:** R1-GW has no HSRP.

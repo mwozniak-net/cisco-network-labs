@@ -4,16 +4,15 @@ no service timestamps log datetime msec
 no service timestamps debug datetime msec
 no service password-encryption
 !
-hostname ROUGE-ROUTER
+hostname ROGUE-DHCP
 !
 !
 !
 !
 !
-ip dhcp pool ROUGE
- network 192.168.1.0 255.255.255.0
- default-router 192.168.1.1
- domain-name hotelnova.local
+ip dhcp pool ROGUE
+ network 192.168.66.0 255.255.255.0
+ default-router 192.168.66.1
 !
 !
 !
@@ -46,7 +45,8 @@ spanning-tree mode pvst
 !
 !
 interface GigabitEthernet0/0
- ip address 192.168.1.1 255.255.255.0
+ description ROGUE DHCP - test atakujacego
+ ip address 192.168.66.1 255.255.255.0
  duplex auto
  speed auto
 !

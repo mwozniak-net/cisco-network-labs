@@ -56,25 +56,25 @@ spanning-tree mode pvst
 !
 !
 interface GigabitEthernet0/0/0
- description line R1-BOOK do S1-BOOK
+ description TRUNK do S1-BOOK
  no ip address
  duplex auto
  speed auto
 !
 interface GigabitEthernet0/0/0.10
- description line STAFF
+ description STAFF
  encapsulation dot1Q 10
  ip address 10.90.10.1 255.255.255.0
  ipv6 address 2001:DB8:90:10::1/64
 !
 interface GigabitEthernet0/0/0.20
- description line CLIENTS
+ description CLIENTS
  encapsulation dot1Q 20
  ip address 10.90.20.1 255.255.255.0
  ipv6 address 2001:DB8:90:20::1/64
 !
 interface GigabitEthernet0/0/0.99
- description line MGMT
+ description MGMT
  encapsulation dot1Q 99 native
  ip address 10.90.99.1 255.255.255.0
  ipv6 address 2001:DB8:90:99::1/64

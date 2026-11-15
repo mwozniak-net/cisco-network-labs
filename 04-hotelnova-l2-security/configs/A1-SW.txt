@@ -15,7 +15,8 @@ ip domain-name hotelnova.local
 !
 username netadmin secret 5 $1$mERr$AKhfMrVYVavlwy.6ebztV1
 !
-ip arp inspection vlan 20-20
+vtp mode transparent
+!
 !
 ip dhcp snooping vlan 10,20
 no ip dhcp snooping information option
@@ -24,13 +25,24 @@ ip dhcp snooping
 spanning-tree mode rapid-pvst
 spanning-tree extend system-id
 !
+vlan 10
+ name STAFF
+!
+vlan 20
+ name GUEST
+!
+vlan 99
+ name MGMT
+!
+vlan 999
+ name PARKING
+!
 interface Port-channel2
  description PAgP_Do_D1-SW
  switchport trunk native vlan 99
  switchport trunk allowed vlan 10,20,99
  switchport mode trunk
  switchport nonegotiate
- spanning-tree vlan 10 cost 100
 !
 interface FastEthernet0/1
  description A1-SW_DO_PC-STAFF
@@ -94,7 +106,7 @@ interface FastEthernet0/9
  shutdown
 !
 interface FastEthernet0/10
- description ROUGErouter
+ description ROGUE-DHCP
  switchport access vlan 20
  ip dhcp snooping limit rate 10
  switchport mode access

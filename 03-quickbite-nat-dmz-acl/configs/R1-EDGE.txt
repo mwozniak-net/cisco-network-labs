@@ -59,7 +59,6 @@ spanning-tree mode pvst
 interface GigabitEthernet0/0
  description R1-do-S1-LAN
  no ip address
- ip nat inside
  duplex auto
  speed auto
 !
@@ -113,13 +112,6 @@ ip flow-export version 9
 ip access-list standard NAT-PAT
  permit 10.92.10.0 0.0.0.255
  permit 10.92.30.0 0.0.0.255
-ip access-list extended DMZ-OUT
- remark HTTP i HTTPS do SRV-WEB
- permit tcp any host 172.16.92.10 eq www
- permit tcp any host 172.16.92.10 eq 443
- remark SSH tylko z VLAN 99
- permit tcp 10.92.99.0 0.0.0.255 host 172.16.92.10 eq 22
- deny ip any any
 ip access-list standard ACL_SSH
  permit 10.92.99.0 0.0.0.255
 ip access-list extended ACL_GUEST
@@ -134,6 +126,13 @@ ip access-list extended ACL_GUEST
  remark tylko WWW do internetu
  permit tcp 10.92.30.0 0.0.0.255 any eq www
  permit tcp 10.92.30.0 0.0.0.255 any eq 443
+ deny ip any any
+ip access-list extended DMZ-OUT
+ remark HTTP i HTTPS do SRV-WEB
+ permit tcp any host 172.16.92.10 eq www
+ permit tcp any host 172.16.92.10 eq 443
+ remark SSH tylko z VLAN 99
+ permit tcp 10.92.99.0 0.0.0.255 host 172.16.92.10 eq 22
  deny ip any any
 !
 banner motd #Witaj na R1-EDGE.#

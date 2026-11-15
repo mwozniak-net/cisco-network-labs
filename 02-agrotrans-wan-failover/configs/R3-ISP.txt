@@ -64,6 +64,7 @@ interface Vlan1
  shutdown
 !
 ip classless
+ip route 10.91.0.0 255.255.0.0 198.51.100.2 
 !
 ip flow-export version 9
 !

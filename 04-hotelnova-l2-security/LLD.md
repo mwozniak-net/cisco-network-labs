@@ -4,90 +4,129 @@
 
 | Hostname | Model | Role | Management IP |
 |---|---|---|---|
-| R1-GW | ISR 2911 | gateway, inter-VLAN routing, DHCP | 10.94.99.1 |
-| D1-SW | Catalyst 2960-24TT | distribution, STP root VLAN 10/99 | 10.94.99.2 |
-| D2-SW | Catalyst 2960-24TT | distribution, STP root VLAN 20 | 10.94.99.3 |
+| R1-GW | ISR 2911 | gateway, inter-VLAN routing, DHCPv4, SLAAC | 10.94.99.1 |
+| D1-SW | Catalyst 2960-24TT | distribution, root VLAN 10/99 | 10.94.99.2 |
+| D2-SW | Catalyst 2960-24TT | distribution, root VLAN 20 | 10.94.99.3 |
 | A1-SW | Catalyst 2960-24TT | access, L2 security | 10.94.99.4 |
-| PC-ADMIN | PC-PT | administrator | 10.94.99.50 (static) |
-| PC-STAFF | PC-PT | staff | DHCP, VLAN 10 |
-| PC-GUEST | PC-PT | guest | DHCP, VLAN 20 |
-| ROUGE-ROUTER | ISR 2911 | attacker (rogue DHCP 192.168.1.0/24) | – |
+| PC-ADMIN | PC-PT | administrator | 10.94.99.50 |
+| PC-STAFF | PC-PT | staff | DHCPv4 + SLAAC, VLAN 10 |
+| PC-GUEST | PC-PT | guest | DHCPv4 + SLAAC, VLAN 20 |
+| ROGUE-DHCP | ISR 2911 | attacker: DHCP server 192.168.66.0/24 | 192.168.66.1 |
 
-## 2. Physical connections
+## 2. Interfaces
 
-| Device A | Port | Device B | Port | Function |
+| Device | Interface | Type | Function / addressing |
+|---|---|---|---|
+| R1-GW | Gi0/0 | physical | trunk to D1 (no IP) |
+| R1-GW | Gi0/0.10 | subinterface | 10.94.10.1/24, 2001:DB8:94:10::1/64 |
+| R1-GW | Gi0/0.20 | subinterface | 10.94.20.1/24, 2001:DB8:94:20::1/64 |
+| R1-GW | Gi0/0.99 | subinterface, native | 10.94.99.1/24 |
+| D1-SW | Port-channel1 | port-channel | LACP to D2, trunk |
+| D1-SW | Port-channel2 | port-channel | PAgP to A1, trunk |
+| D1-SW | Fa0/23–24 | physical, Po1 members | `channel-group 1 mode active` |
+| D1-SW | Fa0/21–22 | physical, Po2 members | `channel-group 2 mode desirable` |
+| D1-SW | Gi0/1 | physical | trunk to R1-GW |
+| D1-SW | Fa0/1 | physical | access 99, PC-ADMIN |
+| D2-SW | Port-channel1 | port-channel | LACP to D1, trunk |
+| D2-SW | Fa0/23–24 | physical, Po1 members | `channel-group 1 mode passive` |
+| D2-SW | Fa0/20 | physical | backup trunk to A1 |
+| A1-SW | Port-channel2 | port-channel | PAgP to D1, trunk |
+| A1-SW | Fa0/21–22 | physical, Po2 members | `channel-group 2 mode desirable` |
+| A1-SW | Fa0/24 | physical | backup trunk to D2 |
+| A1-SW | Fa0/1, Fa0/2, Fa0/10 | physical, access | PC-STAFF (10), PC-GUEST (20), ROGUE-DHCP (20) |
+| D1 / D2 / A1 | Vlan99 | SVI | .2 / .3 / .4, gateway 10.94.99.1 |
+
+All trunks and port-channels: `switchport mode trunk`, native VLAN 99, allowed 10,20,99, `switchport nonegotiate`. Unused ports: access 999, `description UNUSED`, `shutdown`.
+
+## 3. VLANs (VTP transparent, all switches)
+
+| VLAN | Name |
+|---:|---|
+| 10 | STAFF |
+| 20 | GUEST |
+| 99 | MGMT |
+| 999 | PARKING |
+
+## 4. EtherChannel
+
+| Channel | Protocol | Mode (side A / side B) | Members | Link |
 |---|---|---|---|---|
-| R1-GW | Gi0/0 | D1-SW | Gi0/1 | trunk 10,20,99 |
-| D1-SW | Fa0/23–24 | D2-SW | Fa0/23–24 | Po1, LACP (D1 active, D2 passive) |
-| D1-SW | Fa0/21–22 | A1-SW | Fa0/21–22 | Po2, PAgP (desirable / desirable) |
-| A1-SW | Fa0/24 | D2-SW | Fa0/20 | backup trunk |
-| D1-SW | Fa0/1 | PC-ADMIN | Fa0 | access 99 |
-| A1-SW | Fa0/1 | PC-STAFF | Fa0 | access 10 |
-| A1-SW | Fa0/2 | PC-GUEST | Fa0 | access 20 |
-| A1-SW | Fa0/10 | ROUGE-ROUTER | Gi0/0 | access 20 (attack port) |
+| Po1 | LACP | active (D1) / passive (D2) | Fa0/23, Fa0/24 | D1–D2 |
+| Po2 | PAgP | desirable (D1) / desirable (A1) | Fa0/21, Fa0/22 | D1–A1 |
 
-All trunks: `switchport mode trunk`, `switchport nonegotiate`, allowed VLANs 10,20,99, native VLAN 99.
+## 5. Spanning tree (Rapid PVST+)
 
-## 3. VLANs and addressing
+| VLAN | Root | D1 priority | D2 priority | A1 root port | A1 blocked port |
+|---:|---|---:|---:|---|---|
+| 10 | D1 | 24576 | 28672 | Po2 (cost 12) | Fa0/24 |
+| 20 | D2 | 28672 | 24576 | Fa0/24 (cost 19) | Po2 |
+| 99 | D1 | 24576 | 28672 | Po2 | Fa0/24 |
 
-| VLAN | Name | IPv4 | IPv6 (R1-GW) | Gateway |
-|---:|---|---|---|---|
-| 10 | STAFF | 10.94.10.0/24 | 2001:DB8:94:10::/64 | Gi0/0.10 – .1 |
-| 20 | GUEST | 10.94.20.0/24 | 2001:DB8:94:20::/64 | Gi0/0.20 – .1 |
-| 99 | MGMT (native) | 10.94.99.0/24 | – | Gi0/0.99 – .1 |
-| 999 | PARKING | – | – | – |
+## 6. Addressing services (R1-GW)
 
-### DHCP (R1-GW)
+| Pool | Network | Excluded | Gateway | DNS |
+|---|---|---|---|---|
+| STAFF_DHCP | 10.94.10.0/24 | .1–.20 | 10.94.10.1 | 8.8.8.8 |
+| GUEST_DHCP | 10.94.20.0/24 | .1–.20 | 10.94.20.1 | 8.8.8.8 |
 
-| Pool | Network | Excluded | Gateway | DNS | Domain |
-|---|---|---|---|---|---|
-| STAFF_DHCP | 10.94.10.0/24 | .1–.20 | 10.94.10.1 | 8.8.8.8 | hotelnova.local |
-| GUEST_DHCP | 10.94.20.0/24 | .1–.20 | 10.94.20.1 | 8.8.8.8 | hotelnova.local |
+IPv6: `ipv6 unicast-routing`. The subinterfaces send Router Advertisements, so hosts build their address with SLAAC (EUI-64), e.g. PC-GUEST 2001:DB8:94:20:201:42FF:FE7B:6DB6.
 
-## 4. Spanning tree (Rapid PVST+)
+## 7. Access-layer security (A1-SW)
 
-| Switch | VLAN 10 | VLAN 20 | VLAN 99 |
-|---|---:|---:|---:|
-| D1-SW | 24576 (root) | 28672 | 24576 (root) |
-| D2-SW | 28672 | 24576 (root) | 28672 |
-| A1-SW | 32768 | 32768 | 32768 |
+```
+ip dhcp snooping
+ip dhcp snooping vlan 10,20
+no ip dhcp snooping information option
+ip arp inspection vlan 20                    ! extension (DAI)
+interface range fa0/21 - 22 , fa0/24
+ ip dhcp snooping trust
+ ip arp inspection trust
+interface range fa0/1 - 2 , fa0/10
+ ip dhcp snooping limit rate 10
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface fa0/1
+ switchport port-security
+ switchport port-security mac-address sticky
+ ! maximum 1 and violation shutdown are the IOS defaults (show port-security: Max 1, Shutdown)
+```
 
-A1-SW Po2 has `spanning-tree vlan 10 cost 100`. This is a Packet Tracer workaround, described in the README. Resulting forwarding on A1: VLAN 10 and 20 use Fa0/24, VLAN 99 uses Po2.
+### Target IOS configuration for features Packet Tracer does not support
 
-## 5. Access switch A1-SW
+```
+! DHCP snooping / DAI trust on the logical bundle (PT accepts it only on members)
+interface Port-channel2
+ ip dhcp snooping trust
+ ip arp inspection trust
+! IP Source Guard on the PC-GUEST port, based on snooping bindings
+interface fa0/2
+ ip verify source
+! Brute-force protection on the switches
+login block-for 60 attempts 3 within 60
+```
 
-| Feature | Configuration |
-|---|---|
-| DHCP snooping | `ip dhcp snooping`, `ip dhcp snooping vlan 10,20`, `no ip dhcp snooping information option` |
-| Trusted ports | Fa0/21, Fa0/22 (Po2 members), Fa0/24 – `ip dhcp snooping trust`, `ip arp inspection trust` |
-| Rate limit | `ip dhcp snooping limit rate 10` on Fa0/1, Fa0/2, Fa0/10 |
-| DAI | `ip arp inspection vlan 20` |
-| Port security | Fa0/1: `switchport port-security`, sticky MAC, max 1 (default), violation shutdown (default) |
-| Edge ports | Fa0/1, Fa0/2, Fa0/10: PortFast, BPDU Guard |
-| Unused | Fa0/3–9, Fa0/11–20, Fa0/23, Gi0/1–2: access 999, shutdown |
+### Restoring an err-disabled port (port security, BPDU Guard)
 
-## 6. Management and hardening (all devices)
+Find the cause with `show interfaces status err-disabled` and `show port-security interface fa0/1`, and remove the foreign device. Then:
 
-- **SSH and accounts:** `ip domain-name hotelnova.local`, RSA keys generated, `ip ssh version 2`, local user `netadmin` (secret) and `enable secret`.
-- **Remote access:** `access-list 1 permit 10.94.99.0 0.0.0.255`. vty 0–15 use `access-class 1 in`, `login local`, `transport input ssh` and `exec-timeout 5 0`.
+```
+interface fa0/1
+ shutdown
+ no shutdown
+```
+
+Alternatively, `errdisable recovery cause psecure-violation` with an interval.
+
+## 8. Management and hardening (all devices)
+
+- **SSH:** `ip domain-name hotelnova.local`, RSA keys, `ip ssh version 2`.
+- **Accounts:** `username netadmin privilege 15 secret …`, `enable secret`, `service password-encryption`.
+- **Remote access:** `access-list 1 permit 10.94.99.0 0.0.0.255`. `line vty 0 15` uses `access-class 1 in`, `login local`, `transport input ssh` and `exec-timeout 5 0`.
 - **Console:** `exec-timeout 5 0`.
-- **R1-GW:** `login block-for 10 attempts 3 within 60`. The quiet-mode ACL `sl_def_acl` is created automatically by IOS.
-- **Other:** `service password-encryption`. Banner: "Dostep tylko dla uprawnionych" (authorised access only).
+- **R1-GW:** `login block-for 10 attempts 3 within 60`. The ACL `sl_def_acl` is generated automatically by IOS for quiet mode.
 
-## 7. Attack scenario
+## 9. Packet Tracer notes
 
-ROUGE-ROUTER is connected to A1-SW Fa0/10 (guest VLAN) and runs a DHCP pool for 192.168.1.0/24 with itself as the default gateway. Without DHCP snooping, a guest could receive an address from the attacker and send all its traffic through it (man-in-the-middle). With snooping, Fa0/10 is untrusted, so DHCPOFFER/ACK messages from it are dropped and clients receive addresses only from R1-GW.
-
-## 8. Verification commands
-
-```
-D1-SW# show etherchannel summary
-D1-SW# show spanning-tree vlan 10
-A1-SW# show ip dhcp snooping
-A1-SW# show ip dhcp snooping binding
-A1-SW# show port-security interface Fa0/1
-A1-SW# show interfaces trunk
-PC-GUEST> ipconfig /renew
-```
-
-Results after the fixes are listed in [README.md](README.md#verification-packet-tracer-90-after-fixes).
+- **Snooping trust on the bundle:** trust works only on the member ports. DHCP replies arriving on Po2 are dropped, so PC-STAFF (VLAN 10 over Po2) gets an address only when Po2 is down (test T7).
+- **2960 and `privilege 15`:** the switch does not display `privilege 15` in running-config. `show privilege` after an SSH login returns 15.
+- **Rejected commands:** `ip verify source` and, on the 2960, `login block-for` are rejected.

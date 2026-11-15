@@ -5,90 +5,96 @@
 | Hostname | Model | Role | Management IP |
 |---|---|---|---|
 | R1-BOOK | ISR4331 (IOS XE 16.6) | gateway, inter-VLAN routing, DHCP | 10.90.99.1 |
-| S1-BOOK | Catalyst 2960-24TT | central switch | 10.90.99.11 (VLAN 99) |
-| S2-BOOK | Catalyst 2960-24TT | access switch | 10.90.99.12 (VLAN 99) |
-| Server | Server-PT | DNS, HTTP | 10.90.99.10 |
-| PC_ADMIN | PC-PT | administration | 10.90.99.69 (static) |
-| PC_STAFF | PC-PT | staff | DHCP (VLAN 10) |
-| PC_CLIENT | PC-PT | customer terminal | DHCP (VLAN 20) |
+| S1-BOOK | Catalyst 2960-24TT | central switch | 10.90.99.2 |
+| S2-BOOK | Catalyst 2960-24TT | access switch | 10.90.99.3 |
+| SRV-INFO | Server-PT | DNS, HTTP | 10.90.99.10 |
+| PC-ADMIN | PC-PT | administration | 10.90.99.50 |
+| PC-STAFF | PC-PT | staff | DHCP / 2001:DB8:90:10::10 |
+| PC-CLIENT | PC-PT | customer terminal | DHCP / 2001:DB8:90:20::10 |
 
-## 2. Physical connections
+## 2. Cabling
 
-| Device A | Port | Device B | Port | Type |
+| Device A | Port | Device B | Port | Mode |
 |---|---|---|---|---|
 | R1-BOOK | Gi0/0/0 | S1-BOOK | Gi0/1 | trunk |
 | S1-BOOK | Fa0/24 | S2-BOOK | Fa0/24 | trunk |
-| S1-BOOK | Fa0/1 | PC_ADMIN | Fa0 | access VLAN 99 |
-| S1-BOOK | Fa0/2 | Server | Fa0 | access VLAN 99 |
-| S2-BOOK | Fa0/1 | PC_STAFF | Fa0 | access VLAN 10 |
-| S2-BOOK | Fa0/2 | PC_CLIENT | Fa0 | access VLAN 20 |
+| S1-BOOK | Fa0/1 | PC-ADMIN | Fa0 | access 99 |
+| S1-BOOK | Fa0/2 | SRV-INFO | Fa0 | access 99 |
+| S2-BOOK | Fa0/1 | PC-STAFF | Fa0 | access 10 |
+| S2-BOOK | Fa0/2 | PC-CLIENT | Fa0 | access 20 |
 
-## 3. VLANs and trunks
+The worksheet names R1's port Gi0/0. On the ISR4331 used here it is Gi0/0/0.
 
-| VLAN | Name | Present on |
-|---:|---|---|
-| 10 | STAFF | S1, S2 |
-| 20 | CLIENTS | S1, S2 |
-| 99 | MGMT | S1, S2 |
-| 999 | PARKING | S1, S2 |
+## 3. Interfaces and addressing
 
-Trunks (R1–S1 Gi0/1, S1–S2 Fa0/24): `switchport mode trunk`, `switchport nonegotiate`, allowed VLANs 10,20,99, native VLAN 99. On R1 the subinterface Gi0/0/0.99 uses `encapsulation dot1Q 99 native`.
-
-## 4. IP addressing
-
-| Device | Interface | IPv4 | IPv6 |
-|---|---|---|---|
-| R1-BOOK | Gi0/0/0.10 | 10.90.10.1/24 | 2001:DB8:90:10::1/64 |
-| R1-BOOK | Gi0/0/0.20 | 10.90.20.1/24 | 2001:DB8:90:20::1/64 |
-| R1-BOOK | Gi0/0/0.99 | 10.90.99.1/24 | 2001:DB8:90:99::1/64 |
-| S1-BOOK | Vlan99 | 10.90.99.11/24, gw .1 | – |
-| S2-BOOK | Vlan99 | 10.90.99.12/24, gw .1 | – |
-| Server | Fa0 | 10.90.99.10/24, gw .1 | – |
-| PC_ADMIN | Fa0 | 10.90.99.69/24, gw .1 | – |
-
-`ipv6 unicast-routing` is enabled on R1.
-
-## 5. DHCP (R1-BOOK)
-
-| Pool | Network | Default router | DNS | Excluded |
+| Device | Interface | Type | IPv4 | IPv6 |
 |---|---|---|---|---|
-| POOL_STAFF | 10.90.10.0/24 | 10.90.10.1 | 10.90.99.10 | .1–.10 |
-| POOL_CLIENTS | 10.90.20.0/24 | 10.90.20.1 | 10.90.99.10 | .1–.10 |
+| R1-BOOK | Gi0/0/0 | physical, trunk to S1 | – | – |
+| R1-BOOK | Gi0/0/0.10 | subinterface, dot1Q 10 | 10.90.10.1/24 | 2001:DB8:90:10::1/64 |
+| R1-BOOK | Gi0/0/0.20 | subinterface, dot1Q 20 | 10.90.20.1/24 | 2001:DB8:90:20::1/64 |
+| R1-BOOK | Gi0/0/0.99 | subinterface, dot1Q 99 native | 10.90.99.1/24 | 2001:DB8:90:99::1/64 |
+| R1-BOOK | Gi0/0/1, Gi0/0/2 | unused | – (shutdown) | – |
+| S1-BOOK | Vlan99 | SVI | 10.90.99.2/24, gw 10.90.99.1 | – |
+| S2-BOOK | Vlan99 | SVI | 10.90.99.3/24, gw 10.90.99.1 | – |
 
-## 6. Switch port configuration
+## 4. VLANs and switch ports
 
-| Switch | Ports | Mode / VLAN | Protection |
-|---|---|---|---|
-| S1-BOOK | Fa0/1–2 | access 99 | PortFast, BPDU Guard |
-| S1-BOOK | Fa0/3–23, Gi0/2 | access 999, shutdown | – |
-| S2-BOOK | Fa0/1 | access 10 | PortFast, BPDU Guard |
-| S2-BOOK | Fa0/2 | access 20 | port security: sticky MAC, max 1, violation restrict; PortFast, BPDU Guard |
-| S2-BOOK | Fa0/3–23, Gi0/1–2 | access 999, shutdown | – |
+| VLAN | Name | S1-BOOK ports | S2-BOOK ports |
+|---:|---|---|---|
+| 10 | STAFF | – | Fa0/1 |
+| 20 | CLIENTS | – | Fa0/2 |
+| 99 | MGMT | Fa0/1, Fa0/2 | – |
+| 999 | PARKING | Fa0/3–23, Gi0/2 (shutdown, UNUSED) | Fa0/3–23, Gi0/1–2 (shutdown, UNUSED) |
 
-## 7. Services (Server)
+Trunks: `switchport mode trunk`, `switchport trunk native vlan 99`, `switchport trunk allowed vlan 10,20,99`, `switchport nonegotiate`.
+
+| Port | Protection |
+|---|---|
+| S1 Fa0/1, Fa0/2 | PortFast, BPDU Guard |
+| S2 Fa0/1 (PC-STAFF) | PortFast, BPDU Guard |
+| S2 Fa0/2 (PC-CLIENT) | PortFast, BPDU Guard, port security: max 1, sticky, violation restrict |
+
+Restoring a port after BPDU Guard puts it in err-disabled: `shutdown` then `no shutdown` on the interface, after the cause is removed.
+
+## 5. DHCPv4 (R1-BOOK)
+
+```
+ip dhcp excluded-address 10.90.10.1 10.90.10.10
+ip dhcp excluded-address 10.90.20.1 10.90.20.10
+ip dhcp pool POOL_STAFF
+ network 10.90.10.0 255.255.255.0
+ default-router 10.90.10.1
+ dns-server 10.90.99.10
+ip dhcp pool POOL_CLIENTS
+ network 10.90.20.0 255.255.255.0
+ default-router 10.90.20.1
+ dns-server 10.90.99.10
+```
+
+## 6. Services (SRV-INFO)
 
 - **DNS:** A record `intranet.booknook.local` → 10.90.99.10.
-- **HTTP/HTTPS:** enabled (intranet page).
-- **Other services:** DHCP on the server is disabled; addressing comes from R1.
+- **HTTP:** enabled.
+- **DHCP on the server:** disabled.
 
-## 8. Management and hardening (all network devices)
-
-- **Domain and keys:** `ip domain-name booknook.local`, RSA keys generated, `ip ssh version 2`.
-- **Accounts:** local user `netadmin` (secret) and `enable secret`.
-- **Remote access:** `access-list 1 permit 10.90.99.0 0.0.0.255`. All vty lines use `access-class 1 in`, `login local` and `transport input ssh`.
-- **Passwords:** `service password-encryption` is on.
-- **Banner:** MOTD reads "authorised access only".
-
-## 9. Verification commands
+## 7. Management and hardening (R1, S1, S2)
 
 ```
-R1-BOOK# show ip interface brief
-R1-BOOK# show ip dhcp binding
-S1-BOOK# show interfaces trunk
-S2-BOOK# show port-security interface Fa0/2
-PC> ipconfig /renew
-PC> nslookup intranet.booknook.local
-PC_ADMIN> ssh -l netadmin 10.90.99.12
+ip domain-name booknook.local
+crypto key generate rsa            ! modulus min. 1024 (worksheet requirement)
+ip ssh version 2
+username netadmin privilege 15 secret <password>
+enable secret <password>
+service password-encryption
+access-list 1 permit 10.90.99.0 0.0.0.255
+line vty 0 15                      ! 0 4 on the ISR4331
+ access-class 1 in
+ login local
+ transport input ssh
+banner motd #Dostep tylko dla uprawnionych - <hostname>#
 ```
 
-Results after the fixes are listed in [README.md](README.md#verification-packet-tracer-90-after-fixes).
+## 8. Packet Tracer notes
+
+- **Account privilege on the 2960:** the switch accepts `username netadmin privilege 15 secret …` but shows it as `username netadmin secret 5 …` in running-config. After an SSH login, `show privilege` returns 15 (test T7).
+- **Interface names:** the ISR4331 uses Gi0/0/x names instead of the worksheet's Gi0/x.
