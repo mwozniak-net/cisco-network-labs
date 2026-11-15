@@ -1,0 +1,121 @@
+!
+version 15.4
+no service timestamps log datetime msec
+no service timestamps debug datetime msec
+service password-encryption
+!
+hostname R1-BOOK
+!
+login on-success log
+!
+!
+enable secret 5 $1$mERr$q.MA2tj.WFptzvbifq/1i.
+!
+!
+ip dhcp excluded-address 10.90.10.1 10.90.10.10
+ip dhcp excluded-address 10.90.20.1 10.90.20.10
+!
+ip dhcp pool POOL_STAFF
+ network 10.90.10.0 255.255.255.0
+ default-router 10.90.10.1
+ dns-server 10.90.99.10
+ip dhcp pool POOL_CLIENTS
+ network 10.90.20.0 255.255.255.0
+ default-router 10.90.20.1
+ dns-server 10.90.99.10
+!
+!
+!
+no ip cef
+ipv6 unicast-routing
+!
+no ipv6 cef
+!
+!
+!
+username netadmin privilege 15 secret 5 $1$mERr$hx5rVt7rPNoS4wqbXKX7m0
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+ip ssh version 2
+ip domain-name booknook.local
+!
+!
+spanning-tree mode pvst
+!
+!
+!
+!
+!
+!
+interface GigabitEthernet0/0/0
+ description line R1-BOOK do S1-BOOK
+ no ip address
+ duplex auto
+ speed auto
+!
+interface GigabitEthernet0/0/0.10
+ description line STAFF
+ encapsulation dot1Q 10
+ ip address 10.90.10.1 255.255.255.0
+ ipv6 address 2001:DB8:90:10::1/64
+!
+interface GigabitEthernet0/0/0.20
+ description line CLIENTS
+ encapsulation dot1Q 20
+ ip address 10.90.20.1 255.255.255.0
+ ipv6 address 2001:DB8:90:20::1/64
+!
+interface GigabitEthernet0/0/0.99
+ description line MGMT
+ encapsulation dot1Q 99 native
+ ip address 10.90.99.1 255.255.255.0
+ ipv6 address 2001:DB8:90:99::1/64
+!
+interface GigabitEthernet0/0/1
+ description UNUSED
+ no ip address
+ duplex auto
+ speed auto
+ shutdown
+!
+interface GigabitEthernet0/0/2
+ no ip address
+ duplex auto
+ speed auto
+ shutdown
+!
+interface Vlan1
+ no ip address
+!
+ip classless
+!
+ip flow-export version 9
+!
+!
+access-list 1 permit 10.90.99.0 0.0.0.255
+!
+banner motd #Dostep tylko dla uprawnionych - R1-BOOK#
+!
+!
+!
+!
+line con 0
+!
+line aux 0
+!
+line vty 0 4
+ access-class 1 in
+ login local
+ transport input ssh
+!
+!
+!
+end

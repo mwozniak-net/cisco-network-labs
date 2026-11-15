@@ -1,0 +1,136 @@
+!
+version 15.1
+no service timestamps log datetime msec
+no service timestamps debug datetime msec
+service password-encryption
+!
+hostname R1-HQ
+!
+!
+!
+enable secret 5 $1$mERr$hx5rVt7rPNoS4wqbXKX7m0
+!
+!
+!
+!
+!
+!
+no ip cef
+ipv6 unicast-routing
+!
+no ipv6 cef
+!
+!
+!
+username netadmin privilege 15 secret 5 $1$mERr$hx5rVt7rPNoS4wqbXKX7m0
+!
+!
+license udi pid CISCO2911/K9 sn FTX1524Z8A7-
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+ip ssh version 2
+ip domain-name agrotrans.local
+!
+!
+spanning-tree mode pvst
+!
+!
+!
+!
+!
+!
+interface GigabitEthernet0/0
+ description HQ_LAN
+ ip address 10.91.10.1 255.255.255.0
+ ip nat inside
+ duplex auto
+ speed auto
+ ipv6 address 2001:DB8:91:10::1/64
+!
+interface GigabitEthernet0/1
+ description LINE_A
+ ip address 10.91.0.1 255.255.255.252
+ ip nat inside
+ duplex auto
+ speed auto
+ ipv6 address 2001:DB8:91:1::1/64
+!
+interface GigabitEthernet0/2
+ description ISP
+ ip address 198.51.100.2 255.255.255.252
+ ip nat outside
+ duplex auto
+ speed auto
+ ipv6 address 2001:DB8:91:3::2/64
+ no cdp enable
+!
+interface Serial0/3/0
+ description LINE_B
+ ip address 10.91.0.5 255.255.255.252
+ ip nat inside
+ ipv6 address 2001:DB8:91:2::1/64
+ clock rate 64000
+!
+interface Serial0/3/1
+ no ip address
+ clock rate 2000000
+ shutdown
+!
+interface Vlan1
+ no ip address
+ shutdown
+!
+router ospf 1
+ router-id 1.1.1.1
+ log-adjacency-changes
+ passive-interface default
+ no passive-interface GigabitEthernet0/1
+ network 10.91.10.0 0.0.0.255 area 0
+ network 10.91.0.0 0.0.0.3 area 0
+ default-information originate
+!
+ip nat inside source list NAT_INSIDE interface GigabitEthernet0/2 overload
+ip classless
+ip route 0.0.0.0 0.0.0.0 198.51.100.1 
+ip route 10.91.20.0 255.255.255.0 10.91.0.6 150
+!
+ip flow-export version 9
+!
+ipv6 route ::/0 2001:DB8:91:3::1
+ipv6 route 2001:DB8:91:20::/64 GigabitEthernet0/1 2001:DB8:91:1::2
+ipv6 route 2001:DB8:91:20::/64 Serial0/3/0 2001:DB8:91:2::2 150
+!
+access-list 1 permit 10.91.10.0 0.0.0.255
+ip access-list standard NAT_INSIDE
+ permit 10.91.0.0 0.0.255.255
+!
+banner motd #Witaj w routerze R1-HQ.#
+!
+!
+!
+!
+line con 0
+!
+line aux 0
+!
+line vty 0 4
+ access-class 1 in
+ login local
+ transport input ssh
+line vty 5 15
+ access-class 1 in
+ login local
+ transport input ssh
+!
+!
+!
+end

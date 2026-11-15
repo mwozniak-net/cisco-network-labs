@@ -1,0 +1,121 @@
+!
+version 15.1
+no service timestamps log datetime msec
+no service timestamps debug datetime msec
+service password-encryption
+!
+hostname R2-WH
+!
+login on-failure log
+!
+!
+enable secret 5 $1$mERr$hx5rVt7rPNoS4wqbXKX7m0
+!
+!
+!
+!
+!
+!
+no ip cef
+ipv6 unicast-routing
+!
+no ipv6 cef
+!
+!
+!
+username netadmin privilege 15 secret 5 $1$mERr$hx5rVt7rPNoS4wqbXKX7m0
+!
+!
+license udi pid CISCO2901/K9 sn FTX1524F15K-
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+ip ssh version 2
+ip domain-name agrotrans.local
+!
+!
+spanning-tree mode pvst
+!
+!
+!
+!
+!
+!
+interface GigabitEthernet0/0
+ description VLAN20_WH_LAN
+ ip address 10.91.20.1 255.255.255.0
+ duplex auto
+ speed auto
+ ipv6 address 2001:DB8:91:20::1/64
+!
+interface GigabitEthernet0/1
+ description LINE_A
+ ip address 10.91.0.2 255.255.255.252
+ duplex auto
+ speed auto
+ ipv6 address 2001:DB8:91:1::2/64
+!
+interface Serial0/3/0
+ description LINE_B
+ ip address 10.91.0.6 255.255.255.252
+ ipv6 address 2001:DB8:91:2::2/64
+!
+interface Serial0/3/1
+ no ip address
+ clock rate 2000000
+ shutdown
+!
+interface Vlan1
+ no ip address
+ shutdown
+!
+router ospf 1
+ router-id 2.2.2.2
+ log-adjacency-changes
+ passive-interface default
+ no passive-interface GigabitEthernet0/1
+ network 10.91.20.0 0.0.0.255 area 0
+ network 10.91.0.0 0.0.0.3 area 0
+!
+ip classless
+ip route 10.91.10.0 255.255.255.0 10.91.0.5 150
+ip route 0.0.0.0 0.0.0.0 10.91.0.5 150
+!
+ip flow-export version 9
+!
+ipv6 route 2001:DB8:91:10::/64 GigabitEthernet0/1 2001:DB8:91:1::1
+ipv6 route ::/0 GigabitEthernet0/1 2001:DB8:91:1::1
+ipv6 route 2001:DB8:91:10::/64 Serial0/3/0 2001:DB8:91:2::1 150
+ipv6 route ::/0 Serial0/3/0 2001:DB8:91:2::1 150
+!
+access-list 1 permit 10.91.10.0 0.0.0.255
+!
+banner motd #Witaj w routerze R2-WH.#
+!
+!
+!
+!
+line con 0
+!
+line aux 0
+!
+line vty 0 4
+ access-class 1 in
+ login local
+ transport input ssh
+line vty 5 15
+ access-class 1 in
+ login local
+ transport input ssh
+!
+!
+!
+end
